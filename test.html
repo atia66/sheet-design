@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="./hi.css">
+        <title>OMR Answer Sheet — A3 Portrait</title>
+    </head>
+    <body>
+        <div class="download-section">
+            <button class="download-btn" onclick="fillRandomAnswers()">Fill Random Test Data</button>
+            <button class="download-btn" onclick="clearAllAnswers()" style="background: var(--primary-color)">Clear All</button>
+            <button class="download-btn btn-trigger" id="triggerBtn" onclick="toggleTrigger()">Model Answer</button>
+            <button class="download-btn btn-settings" onclick="toggleSettings()">⚙ Settings</button>
+            <button class="download-btn" onclick="downloadSheet()">Download as Image</button>
+        </div>
+
+        <!-- ══ SETTINGS PANEL ══ -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header">
+                <span>Sheet Settings</span>
+                <button class="settings-close" onclick="toggleSettings()">✕</button>
+            </div>
+
+            <div class="settings-body">
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        MCQ Questions (Block 1)
+                        <span class="setting-val" id="val-mcq">30</span>
+                    </label>
+                    <input type="range" class="setting-slider" id="slider-mcq"
+                           min="1" max="30" value="30"
+                           oninput="updateVal('mcq'); applySettings()">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        Choice-Answer Questions (Block 2)
+                        <span class="setting-val" id="val-choice">20</span>
+                    </label>
+                    <input type="range" class="setting-slider" id="slider-choice"
+                           min="1" max="20" value="20"
+                           oninput="updateVal('choice'); applySettings()">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        Essay Questions (Block 3)
+                        <span class="setting-val" id="val-essay">3</span>
+                    </label>
+                    <input type="range" class="setting-slider" id="slider-essay"
+                           min="1" max="3" value="3"
+                           oninput="updateVal('essay'); applySettings()">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        Student ID Digits
+                        <span class="setting-val" id="val-idcols">10</span>
+                    </label>
+                    <input type="range" class="setting-slider" id="slider-idcols"
+                           min="1" max="10" value="10"
+                           oninput="updateVal('idcols'); applySettings()">
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        Model Number Digits
+                        <span class="setting-val" id="val-modelcols">9</span>
+                    </label>
+                    <input type="range" class="setting-slider" id="slider-modelcols"
+                           min="1" max="9" value="9"
+                           oninput="updateVal('modelcols'); applySettings()">
+                </div>
+
+            </div>
+        </div>
+        <!-- /settings-panel -->
+
+        <div class="page-container">
+            <div class="corner-square top-left"></div>
+            <div class="corner-square top-right"></div>
+            <div class="corner-square bottom-left"></div>
+            <div class="corner-square bottom-right"></div>
+
+            <div class="header">
+                <div class="header-left"><div class="logo"><img src="logo.png" alt="uni logo"></div></div>
+                <div class="header-center">
+                    <div class="university-name">[UNIVERSITY NAME]</div>
+                    <div class="faculty-name">[FACULTY NAME]</div>
+                    <div class="exam-title">[EXAM TITLE]</div>
+                </div>
+                <div class="header-right"><div class="qr-code"><img src="./qrcode.png" alt="QR Code"></div></div>
+            </div>
+
+            <div class="main-content">
+                <div class="left-side">
+                    <div class="left-timing-marks" id="timingMarks"></div>
+
+                    <div class="left-section">
+                        <div class="left-top-section">
+
+                            <div class="student-info">
+                                <div class="info-title">Student Information</div>
+                                <div class="info-field"><span class="field-label">Name:</span><div class="field-line"></div></div>
+                                <div class="info-field"><span class="field-label">Section:</span><div class="field-line"></div></div>
+                                <div class="info-field"><span class="field-label">Seat No:</span><div class="field-line"></div></div>
+                                <div class="info-field"><span class="field-label">Date:</span><div class="field-line"></div></div>
+                            </div>
+
+                            <!-- COMBINED ID SECTION -->
+                            <div class="combined-id-section" id="combinedIdSection">
+
+                                <div class="student-id-section" id="studentIdSection">
+                                    <div class="id-title">Student ID Number</div>
+                                    <div class="id-instruction">Mark one digit per column</div>
+                                    <div class="id-grid" id="studentIdGridWrapper">
+                                        <div class="id-header" id="studentIdHeader"></div>
+                                        <div class="id-rows" id="studentIdGrid"></div>
+                                    </div>
+                                </div>
+
+                                <div class="id-section-divider"></div>
+
+                                <div class="Model-id-section" id="modelIdSection">
+                                    <div class="id-title">Model Number</div>
+                                    <div class="id-instruction">Mark the digit for Form ID</div>
+                                    <div class="id-grid" id="modelIdGridWrapper">
+                                        <div class="id-header" id="modelIdHeader"></div>
+                                        <div class="id-rows model-id-rows" id="modelIdGrid"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="instructions">
+                            <div class="instructions-title">INSTRUCTIONS</div>
+                            • Fill circles completely and darkly<br>
+                            • Make no stray marks on this sheet<br>
+                            • Mark only one answer per question<br>
+                            • Mark your student ID number above<br>
+                            • Mark Your Form ID<br>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-section">
+                    <div class="answer-section">
+                        <div class="answer-title">ANSWERS — FILL CIRCLES COMPLETELY</div>
+                        <div class="questions-grid">
+                            <div class="question-block">
+                                <div class="choices-header">
+                                    <span class="choice-label">A</span>
+                                    <span class="choice-label">B</span>
+                                    <span class="choice-label">C</span>
+                                    <span class="choice-label">D</span>
+                                    <span class="choice-label">E</span>
+                                </div>
+                                <div class="question-container" id="questions-1-40"></div>
+                            </div>
+                            <div class="question-block">
+                                <div class="choices-header">
+                                    <span class="choice-label" style="flex: none; padding-left: 28px">Choice Answer</span>
+                                </div>
+                                <div class="question-container" id="questions-41-80"></div>
+                            </div>
+                            <div class="question-block">
+                                <div class="choices-header">
+                                    <span class="choice-label">Essay Questions</span>
+                                </div>
+                                <div class="question-container" id="questions-81-83"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <script src="./a.js"></script>
+    </body>
+</html>
