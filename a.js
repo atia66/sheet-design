@@ -1,6 +1,3 @@
-/* ===============================
-   STATE
-================================ */
 const MAX = {
   mcq: 30,
   choice: 20,
@@ -9,7 +6,7 @@ const MAX = {
   modelcols: 9,
 };
 
-let currentMode = "student"; // 'student' | 'model'
+let currentMode = "model";
 
 function toggleSettings() {
   const panel = document.getElementById("settingsPanel");
@@ -162,7 +159,6 @@ function generateStudentIdGrid() {
   }
 }
 
-
 function placeCursorAtEnd(el) {
   const range = document.createRange();
   const sel = window.getSelection();
@@ -195,7 +191,6 @@ function generateQuestionRows(containerId, startNum, endNum, type = "bubble") {
     const optionsDiv = document.createElement("div");
     optionsDiv.className = "options";
 
-    /* ── Block 1: MCQ bubbles ── */
     if (type === "bubble") {
       ["A", "B", "C", "D", "E"].forEach((letter) => {
         const bubble = document.createElement("div");
@@ -209,22 +204,17 @@ function generateQuestionRows(containerId, startNum, endNum, type = "bubble") {
         };
         optionsDiv.appendChild(bubble);
       });
-
-      /* ── Block 2: text input ── */
     } else if (type === "text-input") {
       const textInput = document.createElement("input");
       textInput.type = "text";
       textInput.className = "answer-input";
       textInput.value = "";
       optionsDiv.appendChild(textInput);
-
-      /* ── Block 3: essay with contenteditable ── */
     } else if (type === "essay-lines") {
       const maxLines = 7;
-      const lineH = 30; // must match --line-height-essay in CSS (px)
+      const lineH = 30;
       const maxH = maxLines * lineH;
 
-      /* lined background */
       const essayContainer = document.createElement("div");
       essayContainer.className = "essay-container";
 
@@ -236,17 +226,13 @@ function generateQuestionRows(containerId, startNum, endNum, type = "bubble") {
         linesBackground.appendChild(essayLine);
       }
 
-      /* contenteditable div — no scrollbar possible with overflow:hidden */
       const editDiv = document.createElement("div");
       editDiv.className = "essay-editable";
       editDiv.contentEditable = "true";
-      editDiv.setAttribute("data-placeholder", "Write answer here…");
       editDiv.spellcheck = false;
 
-      /* Block new characters once the box is full */
       editDiv.addEventListener("keydown", function (e) {
-        if (this.scrollHeight < maxH) return; // still room — allow everything
-
+        if (this.scrollHeight < maxH) return;
         const allowed = [
           "Backspace",
           "Delete",
@@ -258,34 +244,21 @@ function generateQuestionRows(containerId, startNum, endNum, type = "bubble") {
           "End",
           "Tab",
         ];
-        const isCtrl = e.ctrlKey || e.metaKey;
-
-        // Allow Ctrl+A, Ctrl+C, Ctrl+Z, Ctrl+X etc.
-        if (isCtrl) return;
-
-        // Block any printable character or Enter
-        if (!allowed.includes(e.key)) {
-          e.preventDefault();
-        }
+        if (e.ctrlKey || e.metaKey) return;
+        if (!allowed.includes(e.key)) e.preventDefault();
       });
 
-      /* Trim on every input event (catches autocomplete, IME, voice, etc.) */
       editDiv.addEventListener("input", function () {
-        if (this.scrollHeight > maxH + 2) {
-          trimToLimit(this, maxH);
-        }
+        if (this.scrollHeight > maxH + 2) trimToLimit(this, maxH);
       });
 
-      /* Intercept paste — insert as plain text then trim */
       editDiv.addEventListener("paste", function (e) {
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData).getData(
           "text/plain",
         );
         document.execCommand("insertText", false, text);
-        if (this.scrollHeight > maxH + 2) {
-          trimToLimit(this, maxH);
-        }
+        if (this.scrollHeight > maxH + 2) trimToLimit(this, maxH);
       });
 
       essayContainer.appendChild(linesBackground);
@@ -298,100 +271,262 @@ function generateQuestionRows(containerId, startNum, endNum, type = "bubble") {
   }
 }
 
+/* ══════════════════════════════════════════════
+   IMPORT / EXPORT JSON
+══════════════════════════════════════════════ */
 
-function fillRandomAnswers() {
-  // Block 1 — MCQ bubbles
+function collectSheetData() {
+  const data = {
+    mcq: [],
+    choices: [],
+    essays: [],
+    studentId: null, // number string e.g. "2031456789", or null if model sheet
+    modelId: null,
+  };
+
+  // MCQ bubbles
   document.querySelectorAll("#questions-1-40 .question-row").forEach((row) => {
-    if (row.style.display === "none") return;
-    const bubbles = row.querySelectorAll(".bubble");
-    bubbles.forEach((b) => b.classList.remove("filled"));
-    const pick = bubbles[Math.floor(Math.random() * bubbles.length)];
-    if (pick) pick.classList.add("filled");
+    const filled = row.querySelector(".bubble.filled");
+    data.mcq.push(filled ? filled.textContent.trim() : null);
   });
 
-  // Block 2 — text inputs with real text answers
-  const choiceAnswers = [
-    "True",
-    "False",
-    "Yes",
-    "No",
-    "Correct",
-    "Incorrect",
-    "Agree",
-    "Disagree",
-    "Valid",
-    "Invalid",
-    "A and B",
-    "None",
-  ];
+  // Choice text inputs
   document.querySelectorAll("#questions-41-80 .answer-input").forEach((inp) => {
-    const row = inp.closest(".question-row");
-    if (row && row.style.display === "none") return;
-    inp.value = choiceAnswers[Math.floor(Math.random() * choiceAnswers.length)];
+    data.choices.push(inp.value);
   });
 
-  // Block 3 — essay editables
-  // Block 3 — essay editables
-  const samples = [
-    "The main concept relies on the fundamental principles established in the theoretical framework. Evidence suggests a strong correlation between the variables studied throughout the experiment and supports the original hypothesis proposed.",
-    "Based on the analysis conducted, several key factors emerge as significant contributors to the overall outcome. The methodology applied ensures validity and reliability of the findings presented in this section.",
-    "The results demonstrate a clear pattern consistent with the hypothesis proposed. Further investigation is recommended to explore the underlying mechanisms driving these observed relationships in detail.",
-  ];
-
+  // Essay editables
   document
     .querySelectorAll("#questions-81-83 .essay-editable")
-    .forEach((el, idx) => {
-      const row = el.closest(".question-row");
-      if (row && row.style.display === "none") return;
-      el.innerText = samples[idx % samples.length];
-      setTimeout(() => {
-        const lh = parseFloat(getComputedStyle(el).lineHeight) || 30;
-        const maxH = 7 * lh;
-        while (el.scrollHeight > maxH + 2 && el.innerText.length > 0) {
-          el.innerText = el.innerText.slice(0, -1);
-        }
-      }, 50);
+    .forEach((el) => {
+      data.essays.push(el.innerText);
     });
 
-  // Student ID grid
-  const idCols = +document.getElementById("slider-idcols").value;
-  for (let col = 0; col < idCols; col++) {
-    const colBubbles = document.querySelectorAll(
-      `#studentIdGrid .id-cell:nth-child(${col + 1}) .id-bubble`,
-    );
-    colBubbles.forEach((b) => b.classList.remove("filled"));
-    const pick = colBubbles[Math.floor(Math.random() * colBubbles.length)];
-    if (pick) pick.classList.add("filled");
+  // Student ID — only when in student mode
+  // Concatenate each column's filled digit into one number string.
+  // A column with no filled bubble contributes "_" as a placeholder.
+  if (currentMode === "student") {
+    const idCols = +document.getElementById("slider-idcols").value;
+    let digits = "";
+    for (let col = 0; col < idCols; col++) {
+      const filled = document.querySelector(
+        `#studentIdGrid .id-cell:nth-child(${col + 1}) .id-bubble.filled`,
+      );
+      digits += filled ? filled.textContent.trim() : "_";
+    }
+    data.studentId = digits; // partial fills use "_" as placeholder per column
   }
+  // else stays null for model sheets
 
-  // Model ID grid
-  const modelCols = +document.getElementById("slider-modelcols").value;
-  const modelBubbles = Array.from(
-    document.querySelectorAll("#modelIdGrid .id-bubble"),
-  ).filter((_, i) => i < modelCols);
-  modelBubbles.forEach((b) => b.classList.remove("filled"));
-  const pick = modelBubbles[Math.floor(Math.random() * modelBubbles.length)];
-  if (pick) pick.classList.add("filled");
+  // Model ID — which bubble is filled
+  const filledModel = document.querySelector("#modelIdGrid .id-bubble.filled");
+  data.modelId = filledModel ? filledModel.textContent.trim() : null;
+
+  return data;
 }
 
+function exportJSON() {
+  const data = collectSheetData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "omr-sheet-data.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        loadSheetData(data);
+      } catch {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function loadSheetData(data) {
+  // MCQ
+  if (Array.isArray(data.mcq)) {
+    const rows = document.querySelectorAll("#questions-1-40 .question-row");
+    rows.forEach((row, i) => {
+      row
+        .querySelectorAll(".bubble")
+        .forEach((b) => b.classList.remove("filled"));
+      if (data.mcq[i]) {
+        const match = Array.from(row.querySelectorAll(".bubble")).find(
+          (b) => b.textContent.trim() === data.mcq[i],
+        );
+        if (match) match.classList.add("filled");
+      }
+    });
+  }
+
+  // Choices
+  if (Array.isArray(data.choices)) {
+    const inputs = document.querySelectorAll("#questions-41-80 .answer-input");
+    inputs.forEach((inp, i) => {
+      inp.value = data.choices[i] ?? "";
+    });
+  }
+
+  // Essays
+  if (Array.isArray(data.essays)) {
+    const edits = document.querySelectorAll("#questions-81-83 .essay-editable");
+    edits.forEach((el, i) => {
+      el.innerText = data.essays[i] ?? "";
+    });
+  }
+
+  // Student ID — stored as merged digit string e.g. "2031_56789"
+  // "_" means that column had no bubble filled; null means model sheet (skip)
+  if (typeof data.studentId === "string") {
+    const idGrid = document.getElementById("studentIdGrid");
+    [...data.studentId].forEach((ch, col) => {
+      idGrid
+        .querySelectorAll(`.id-cell:nth-child(${col + 1}) .id-bubble`)
+        .forEach((b) => b.classList.remove("filled"));
+      if (ch !== "_") {
+        const match = Array.from(
+          idGrid.querySelectorAll(`.id-cell:nth-child(${col + 1}) .id-bubble`),
+        ).find((b) => b.textContent.trim() === ch);
+        if (match) match.classList.add("filled");
+      }
+    });
+  }
+
+  // Model ID
+  if (data.modelId !== undefined) {
+    const modelGrid = document.getElementById("modelIdGrid");
+    modelGrid
+      .querySelectorAll(".id-bubble")
+      .forEach((b) => b.classList.remove("filled"));
+    if (data.modelId !== null) {
+      const match = Array.from(modelGrid.querySelectorAll(".id-bubble")).find(
+        (b) => b.textContent.trim() === String(data.modelId),
+      );
+      if (match) match.classList.add("filled");
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CLEAR
+══════════════════════════════════════════════ */
 function clearAllAnswers() {
-  // Bubbles (MCQ + ID grids)
   document
     .querySelectorAll(".bubble, .id-bubble")
     .forEach((b) => b.classList.remove("filled"));
-
-  // Block 2 text inputs
   document.querySelectorAll(".answer-input").forEach((inp) => {
     inp.value = "";
   });
-
-  // Block 3 essay editables
   document.querySelectorAll(".essay-editable").forEach((el) => {
     el.innerText = "";
   });
 }
 
 
+
+function openQrModal() {
+  document.getElementById("qrModal").classList.add("open");
+  document.getElementById("qrModalOverlay").classList.add("open");
+  // Pre-fill from header if already set
+  const examTitle = document.querySelector(".exam-title");
+  if (examTitle && examTitle.dataset.examName) {
+    document.getElementById("qrExamName").value =
+      examTitle.dataset.examName || "";
+    document.getElementById("qrCourseCode").value =
+      examTitle.dataset.courseCode || "";
+  }
+}
+
+function closeQrModal() {
+  document.getElementById("qrModal").classList.remove("open");
+  document.getElementById("qrModalOverlay").classList.remove("open");
+}
+
+async function generateQrCode() {
+  const examName = document.getElementById("qrExamName").value.trim();
+  const courseCode = document.getElementById("qrCourseCode").value.trim();
+
+  if (!examName && !courseCode) {
+    alert("Please enter at least an exam name or course code.");
+    return;
+  }
+
+  // Update header exam title
+  const examTitleEl = document.querySelector(".exam-title");
+  if (examTitleEl) {
+    examTitleEl.textContent = `${courseCode ? courseCode + " — " : ""}${examName}`;
+    examTitleEl.dataset.examName = examName;
+    examTitleEl.dataset.courseCode = courseCode;
+  }
+
+  // Send to your local QR generator API
+  const preview = document.getElementById("qrPreview");
+  preview.innerHTML =
+    '<span style="color:#888;font-size:11px">Generating…</span>';
+  try {
+    const res = await fetch(
+      "http://localhost:8080/api/professor/exams/qrcode",
+      {
+        method: "POST",
+        headers: {
+          accept: "image/png",
+          Authorization:
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjIsInJvbGUiOiJwcm9mZXNzb3IiLCJleHAiOjE3ODIzMDUyNzh9.XmKjXyoOyk61rkf971yUTxbCRyTYyvR1W5OAfsYleEo",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          course_code: courseCode,
+          exam_name: examName,
+        }),
+      },
+    );
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    // Show in modal preview
+    preview.innerHTML = "";
+    const previewImg = document.createElement("img");
+    previewImg.src = url;
+    previewImg.style.cssText =
+      "width:140px;height:140px;border:2px solid var(--qr_code_boarder);border-radius:3px;";
+    preview.appendChild(previewImg);
+
+    // Place on the sheet
+    const sheetQr = document.querySelector(".qr-code");
+    if (sheetQr) {
+      sheetQr.innerHTML = "";
+      const sheetImg = document.createElement("img");
+      sheetImg.src = url;
+      sheetImg.style.cssText =
+        "max-width:var(--qr-logo-size);max-height:var(--qr-logo-size);border:var(--border-medium) solid var(--qr_code_boarder);";
+      sheetQr.appendChild(sheetImg);
+    }
+  } catch (err) {
+    preview.innerHTML = `<span style="color:#e55;font-size:11px">Failed: ${err.message}</span>`;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   PDF DOWNLOAD
+══════════════════════════════════════════════ */
 async function downloadSheet() {
   if (typeof window.jspdf === "undefined") {
     await new Promise((resolve, reject) => {
@@ -413,28 +548,17 @@ async function downloadSheet() {
   page.style.marginRight = "";
   document.body.classList.add("generating");
 
-  // Swap each essay-editable for a plain div so html2canvas
-  // captures all text (not just the visible overflow:hidden slice)
   const replacements = [];
   document.querySelectorAll(".essay-editable").forEach((ed) => {
     const computed = window.getComputedStyle(ed);
     const div = document.createElement("div");
     div.style.cssText = `
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      font-size: ${computed.fontSize};
-      font-family: ${computed.fontFamily};
-      line-height: ${computed.lineHeight};
-      padding: ${computed.padding};
-      color: ${computed.color};
-      background: transparent;
-      white-space: pre-wrap;
-      word-break: break-word;
-      overflow: hidden;
-      z-index: 2;
-      box-sizing: border-box;
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      font-size: ${computed.fontSize}; font-family: ${computed.fontFamily};
+      line-height: ${computed.lineHeight}; padding: ${computed.padding};
+      color: ${computed.color}; background: transparent;
+      white-space: pre-wrap; word-break: break-word;
+      overflow: hidden; z-index: 2; box-sizing: border-box;
     `;
     div.textContent = ed.innerText;
     ed.parentNode.insertBefore(div, ed);
@@ -483,6 +607,9 @@ async function downloadSheet() {
   }
 }
 
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", function () {
   generateTimingMarks();
   generateModelIdGrid();
@@ -490,4 +617,11 @@ document.addEventListener("DOMContentLoaded", function () {
   generateQuestionRows("questions-1-40", 1, MAX.mcq, "bubble");
   generateQuestionRows("questions-41-80", 1, MAX.choice, "text-input");
   generateQuestionRows("questions-81-83", 1, MAX.essay, "essay-lines");
+
+  // Sync UI to initial mode
+  const btn = document.getElementById("triggerBtn");
+  const page = document.querySelector(".page-container");
+  btn.textContent = "Student Sheet";
+  btn.classList.add("is-student");
+  page.classList.add("mode-model");
 });

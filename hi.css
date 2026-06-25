@@ -1,3 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Rock+Salt&display=swap");
+
+.answer-input,
+.essay-editable {
+  font-family: 'Rock Salt', cursive !important;
+  font-size: 12px !important;
+}
+
+.essay-editable {
+  font-size: 12px !important;
+  line-height: var(--line-height-essay) !important;
+}
+
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap");
 :root {
   --primary-color: rgb(220, 30, 50);
