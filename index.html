@@ -4,128 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./hi.css">
-    <title>OMR Answer Sheet — A3 Portrait</title>
+    <title>OMR Answer Sheet</title>
 
-    <style>
-      /* ══ QR MODAL ══ */
-      .modal-overlay {
-        display: none;
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.55);
-        z-index: 10000;
-        backdrop-filter: blur(2px);
-      }
-      .modal-overlay.open { display: block; }
 
-      .qr-modal {
-        display: none;
-        position: fixed;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 10001;
-        width: 340px;
-        background: #1e1e1e;
-        border: 2px solid #444;
-        border-radius: 10px;
-        box-shadow: 0 12px 48px rgba(0,0,0,0.6);
-        font-family: var(--font-family, 'IBM Plex Sans', sans-serif);
-        overflow: hidden;
-      }
-      .qr-modal.open { display: flex; flex-direction: column; }
-
-      .qr-modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #2d2d2d;
-        padding: 11px 16px;
-        border-bottom: 1px solid #444;
-      }
-      .qr-modal-header span {
-        font-size: 13px; font-weight: 700; color: #fff;
-      }
-      .qr-modal-close {
-        background: none; border: none;
-        color: #aaa; font-size: 18px;
-        cursor: pointer; line-height: 1; padding: 0 3px;
-      }
-      .qr-modal-close:hover { color: #fff; }
-
-      .qr-modal-body {
-        padding: 18px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .qr-field {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-      }
-      .qr-field label {
-        font-size: 11px;
-        font-weight: 600;
-        color: #ccc;
-        letter-spacing: 0.04em;
-      }
-      .qr-field input {
-        background: #2d2d2d;
-        border: 1px solid #555;
-        border-radius: 5px;
-        padding: 8px 10px;
-        color: #fff;
-        font-size: 12px;
-        font-family: var(--font-family, sans-serif);
-        outline: none;
-        transition: border-color 0.15s;
-      }
-      .qr-field input:focus {
-        border-color: var(--primary-color, rgb(220,30,50));
-      }
-
-      #qrPreview {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 40px;
-        padding: 4px 0 2px;
-      }
-      #qrPreview img, #qrPreview canvas {
-        border: 2px solid var(--qr_code_boarder, rgb(30,90,30));
-        border-radius: 3px;
-      }
-
-      .qr-modal-footer {
-        display: flex;
-        gap: 8px;
-        padding: 0 16px 16px;
-      }
-      .qr-btn {
-        flex: 1;
-        padding: 8px 0;
-        border: none;
-        border-radius: 5px;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: var(--font-family, sans-serif);
-        transition: filter 0.15s;
-      }
-      .qr-btn:hover { filter: brightness(1.15); }
-      .qr-btn-generate {
-        background: var(--primary-color, rgb(220,30,50));
-        color: #fff;
-      }
-      .qr-btn-cancel {
-        background: #3a3a3a;
-        color: #ccc;
-      }
-    </style>
   </head>
 
   <body>
-
     <div class="download-section">
       <button class="download-btn" onclick="importJSON()">Import JSON</button>
       <button class="download-btn" onclick="exportJSON()">Export JSON</button>
@@ -134,6 +18,81 @@
       <button class="download-btn btn-settings" onclick="openQrModal()">QR Code</button>
       <button class="download-btn" onclick="downloadSheet()">Download as PDF</button>
     </div>
+  <div class="overlay" id="loginOverlay">
+    <div class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+
+      <div class="login-header">
+        <div class="login-brand">
+          <div class="login-logo" aria-hidden="true">B</div>
+          <span class="login-app-name" id="loginTitle">Blese</span>
+        </div>
+        <div class="login-subtitle">Sign in to access the OMR system</div>
+      </div>
+
+      <div class="login-body">
+
+        
+
+        <div class="field-group">
+          <label class="field-label" for="username">Username</label>
+          <div class="field-wrap">
+            <i class="ti ti-mail" aria-hidden="true"></i>
+            <input class="field-input" id="username" type="text"
+              autocomplete="username" placeholder="username" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="passwordInput">Password</label>
+          <div class="field-wrap">
+            <i class="ti ti-lock" aria-hidden="true"></i>
+            <input class="field-input" id="passwordInput" type="password"
+              placeholder="••••••••"
+              autocomplete="current-password" />
+            <i class="ti ti-eye eye-icon" aria-hidden="true" id="eyeIcon"
+              onclick="togglePw()" title="Show/hide password"></i>
+          </div>
+        </div>
+
+
+
+        <div class="status-bar" id="statusBar" role="alert" aria-live="polite">
+          <i class="ti" id="statusIcon" aria-hidden="true"></i>
+          <span id="statusMsg"></span>
+        </div>
+
+        <button class="login-btn" id="loginBtn" onclick="doLogin()">
+          <div class="spinner" id="spinner" aria-hidden="true"></div>
+          <i class="ti ti-login" aria-hidden="true" id="loginIcon"></i>
+          <span id="loginBtnText">Sign in</span>
+        </button>
+
+      </div>
+
+      <div class="login-footer">
+        <div class="api-pill">
+          <div class="api-dot" id="apiDot"></div>
+          <span id="apiStatus">checking gateway…</span>
+        </div>
+        <button class="config-link" onclick="toggleEndpointEditor()"
+          aria-expanded="false" id="configToggle">
+          Configure endpoint
+        </button>
+      </div>
+
+      <div class="endpoint-editor" id="endpointEditor">
+        <label class="field-label" for="baseUrlInput">Base URL</label>
+        <input class="field-input" id="baseUrlInput"
+          type="text" value="http://localhost:8080"
+          placeholder="http://localhost:8080" />
+        <label class="field-label" for="pathInput">Path</label>
+      <input class="field-input" id="pathInput"
+        type="text" value="/api/auth/professor/login"
+        placeholder="/api/auth/professor/login" />
+      </div>
+
+    </div>
+  </div>
 
     <div class="modal-overlay" id="qrModalOverlay" onclick="closeQrModal()"></div>
     <div class="qr-modal" id="qrModal">
@@ -158,7 +117,6 @@
       </div>
     </div>
 
-    <!-- ── Sheet ── -->
     <div class="page-container">
       <div class="corner-square top-left"></div>
       <div class="corner-square top-right"></div>
@@ -171,7 +129,7 @@
           <div class="university-name">Suez canal university</div>
           <div class="faculty-name">Computer science</div>
         </div>
-        <div class="header-right"><div class="qr-code"><img src="./qrcode.png" alt="QR Code"></div></div>
+        <div class="header-right"><div class="qr-code"><img src="./" alt="QR Code"></div></div>
       </div>
 
       <div class="main-content">

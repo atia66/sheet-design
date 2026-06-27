@@ -424,9 +424,6 @@ function loadSheetData(data) {
   }
 }
 
-/* ══════════════════════════════════════════════
-   CLEAR
-══════════════════════════════════════════════ */
 function clearAllAnswers() {
   document
     .querySelectorAll(".bubble, .id-bubble")
@@ -468,6 +465,13 @@ async function generateQrCode() {
     return;
   }
 
+  const token = localStorage.getItem("blese_token");
+  if (!token) {
+    alert("You're not logged in. Please sign in first.");
+    document.getElementById("loginOverlay").style.display = "flex";
+    return;
+  }
+
   // Update header exam title
   const examTitleEl = document.querySelector(".exam-title");
   if (examTitleEl) {
@@ -476,19 +480,18 @@ async function generateQrCode() {
     examTitleEl.dataset.courseCode = courseCode;
   }
 
-  // Send to your local QR generator API
+
   const preview = document.getElementById("qrPreview");
   preview.innerHTML =
     '<span style="color:#888;font-size:11px">Generating…</span>';
   try {
     const res = await fetch(
-      "http://localhost:8080/api/professor/exams/qrcode",
+      BASE_URL.replace(/\/$/, "") + "/api/professor/exams/qrcode",
       {
         method: "POST",
         headers: {
           accept: "image/png",
-          Authorization:
-            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjIsInJvbGUiOiJwcm9mZXNzb3IiLCJleHAiOjE3ODIzMDUyNzh9.XmKjXyoOyk61rkf971yUTxbCRyTYyvR1W5OAfsYleEo",
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -497,11 +500,18 @@ async function generateQrCode() {
         }),
       },
     );
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    console.log(res)
+    if (res.status === 401 || res.status === 403) {
+      
+      preview.innerHTML =
+        '<span style="color:#e55;font-size:11px">Session expired — please sign in again.</span>';
+    }
+    if (!res.ok) throw new Error(`You don't teach this course`);
+
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
-    // Show in modal preview
+
     preview.innerHTML = "";
     const previewImg = document.createElement("img");
     previewImg.src = url;
@@ -509,7 +519,7 @@ async function generateQrCode() {
       "width:140px;height:140px;border:2px solid var(--qr_code_boarder);border-radius:3px;";
     preview.appendChild(previewImg);
 
-    // Place on the sheet
+
     const sheetQr = document.querySelector(".qr-code");
     if (sheetQr) {
       sheetQr.innerHTML = "";
@@ -625,3 +635,161 @@ document.addEventListener("DOMContentLoaded", function () {
   btn.classList.add("is-student");
   page.classList.add("mode-model");
 });
+
+
+
+
+    /* ── Config ── */
+    let BASE_URL   = 'http://localhost:8080';
+    let LOGIN_PATH = '/api/auth/professor/login';
+
+    function getEndpoint() {
+      return BASE_URL.replace(/\/$/, '') + LOGIN_PATH;
+    }
+
+    function updateEndpointDisplay() {
+      document.getElementById('endpointDisplay').textContent =
+        BASE_URL.replace(/^https?:\/\//, '') + LOGIN_PATH;
+    }
+
+    /* ── Toggle password visibility ── */
+    function togglePw() {
+      const inp  = document.getElementById('passwordInput');
+      const icon = document.getElementById('eyeIcon');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        icon.className = 'ti ti-eye-off eye-icon';
+      } else {
+        inp.type = 'password';
+        icon.className = 'ti ti-eye eye-icon';
+      }
+    }
+
+    /* ── Status bar ── */
+    function showStatus(type, msg) {
+      const bar  = document.getElementById('statusBar');
+      const icon = document.getElementById('statusIcon');
+      bar.className = 'status-bar ' + type;
+      document.getElementById('statusMsg').textContent = msg;
+      icon.className = 'ti ' + (type === 'error' ? 'ti-alert-circle' : 'ti-circle-check');
+    }
+
+    function clearStatus() {
+      document.getElementById('statusBar').className = 'status-bar';
+    }
+
+    /* ── Button loading state ── */
+    function setLoading(on) {
+      const btn     = document.getElementById('loginBtn');
+      const spinner = document.getElementById('spinner');
+      const icon    = document.getElementById('loginIcon');
+      const txt     = document.getElementById('loginBtnText');
+      btn.disabled            = on;
+      spinner.style.display   = on ? 'block' : 'none';
+      icon.style.display      = on ? 'none'  : '';
+      txt.textContent         = on ? 'Signing in…' : 'Sign in';
+    }
+
+async function doLogin() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("passwordInput").value;
+
+  clearStatus();
+
+  if (!username || !password) {
+    showStatus("error", "Username and password are required.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const res = await fetch(getEndpoint(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const ct = res.headers.get("content-type") || "";
+    const data = ct.includes("application/json") ? await res.json() : null;
+
+    if (res.ok) {
+      console.log(data)
+      if (data.token) {
+        localStorage.setItem("blese_token", data.token);
+      }
+      showStatus("success", data?.message || "Signed in successfully.");
+      document.getElementById("apiDot").className = "api-dot live";
+      document.getElementById("apiStatus").textContent = "authenticated";
+
+      setTimeout(() => {
+        document.getElementById("loginOverlay").style.display = "none";
+        window.dispatchEvent(
+          new CustomEvent("blese:authenticated", { detail: data }),
+        );
+      }, 800);
+    } else {
+      const msg =
+        data?.message ||
+        data?.detail ||
+        data?.error ||
+        `Server returned ${res.status}`;
+      showStatus("error", msg);
+    }
+  } catch (err) {
+    if (err instanceof TypeError) {
+      showStatus("error", "Gateway unreachable — check the endpoint config.");
+      document.getElementById("apiDot").className = "api-dot";
+      document.getElementById("apiStatus").textContent = "unreachable";
+    } else {
+      showStatus("error", err.message || "Unexpected error.");
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+    /* ── Endpoint editor ── */
+    function toggleEndpointEditor() {
+      const editor = document.getElementById('endpointEditor');
+      const toggle = document.getElementById('configToggle');
+      const open   = editor.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open);
+      if (open) document.getElementById('baseUrlInput').focus();
+    }
+
+    document.getElementById('baseUrlInput').addEventListener('input', function () {
+      BASE_URL = this.value.trim();
+      updateEndpointDisplay();
+    });
+
+    document.getElementById('pathInput').addEventListener('input', function () {
+      LOGIN_PATH = this.value.trim();
+      updateEndpointDisplay();
+    });
+
+    /* ── Keyboard UX ── */
+    document.getElementById("username").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("passwordInput").focus();
+    });
+    document.getElementById('passwordInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    /* ── Health ping on load ── */
+    async function pingGateway() {
+      const dot   = document.getElementById('apiDot');
+      const label = document.getElementById('apiStatus');
+      try {
+        const res = await fetch(
+          BASE_URL.replace(/\/$/, '') + '/health',
+          { method: 'GET', signal: AbortSignal.timeout(2500) }
+        );
+        dot.className   = res.ok ? 'api-dot live' : 'api-dot';
+        label.textContent = res.ok ? 'gateway reachable' : `gateway ${res.status}`;
+      } catch {
+        dot.className   = 'api-dot';
+        label.textContent = 'gateway unreachable';
+      }
+    }
+
+  
